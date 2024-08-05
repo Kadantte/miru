@@ -305,19 +305,19 @@ class AnilistClient {
     // isAdult doesn't need an extra variable, as the title is the same regardless of type, so we re-use the same variable for adult and non-adult requests
     /** @type {Record<`v${number}`, string>} */
     const requestVariables = flattenedTitles.reduce((obj, { title, isAdult }, i) => {
-      if (isAdult) return obj
+      if (isAdult && i !== 0) return obj
       obj[`v${i}`] = title
       return obj
     }, {})
 
     const queryVariables = flattenedTitles.reduce((arr, { isAdult }, i) => {
-      if (isAdult) return arr
+      if (isAdult && i !== 0) return arr
       arr.push(`$v${i}: String`)
       return arr
     }, []).join(', ')
     const fragmentQueries = flattenedTitles.map(({ year, isAdult }, i) => /* js */`
     v${i}: Page(perPage: 10) {
-      media(type: ANIME, search: $v${isAdult ? i - 1 : i}, status_in: [RELEASING, FINISHED], isAdult: ${!!isAdult} ${year ? `, seasonYear: ${year}` : ''}) {
+      media(type: ANIME, search: $v${(isAdult && i !== 0) ? i - 1 : i}, status_in: [RELEASING, FINISHED], isAdult: ${!!isAdult} ${year ? `, seasonYear: ${year}` : ''}) {
         ...med
       }
     }`)
@@ -624,12 +624,12 @@ class AnilistClient {
   async search (variables = {}) {
     variables.sort ||= 'SEARCH_MATCH'
     const query = /* js */` 
-    query($page: Int, $perPage: Int, $sort: [MediaSort], $search: String, $onList: Boolean, $status: MediaStatus, $season: MediaSeason, $year: Int, $genre: String, $format: MediaFormat) {
+    query($page: Int, $perPage: Int, $sort: [MediaSort], $search: String, $onList: Boolean, $status: MediaStatus, $status_not: MediaStatus, $season: MediaSeason, $year: Int, $genre: String, $format: MediaFormat) {
       Page(page: $page, perPage: $perPage) {
         pageInfo {
           hasNextPage
         },
-        media(type: ANIME, search: $search, sort: $sort, onList: $onList, status: $status, season: $season, seasonYear: $year, genre: $genre, format: $format, format_not: MUSIC) {
+        media(type: ANIME, search: $search, sort: $sort, onList: $onList, status: $status, status_not: $status_not, season: $season, seasonYear: $year, genre: $genre, format: $format, format_not: MUSIC) {
           ${queryObjects}
         }
       }
