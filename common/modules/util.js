@@ -152,8 +152,12 @@ export const defaults = {
   font: undefined,
   angle: 'default',
   toshoURL: SUPPORTS.extensions ? decodeURIComponent(atob('aHR0cHM6Ly9mZWVkLmFuaW1ldG9zaG8ub3JnLw==')) : '',
-  extensions: SUPPORTS.extensions ? ['@thaunknown/ani-resourced'] : [],
-  sources: {}
+  extensions: SUPPORTS.extensions ? ['anisearch'] : [],
+  sources: {},
+  enableExternal: false,
+  playerPath: '',
+  playerSeek: 2,
+  playerSkip: false
 }
 
 export const subtitleExtensions = ['srt', 'vtt', 'ass', 'ssa', 'sub', 'txt']

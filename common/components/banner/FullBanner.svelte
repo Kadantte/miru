@@ -2,6 +2,8 @@
   import { formatMap, setStatus, playMedia } from '@/modules/anime.js'
   import { anilistClient } from '@/modules/anilist.js'
   import { click } from '@/modules/click.js'
+  import { alToken } from '@/modules/settings.js'
+  import { Bookmark, Heart } from 'lucide-svelte'
   export let mediaList
 
   let current = mediaList[0]
@@ -46,7 +48,9 @@
 {#key current}
   <img src={current.bannerImage || `https://i.ytimg.com/vi/${current.trailer?.id}/maxresdefault.jpg` || ''} alt='banner' class='img-cover w-full h-full position-absolute' />
 {/key}
-<div class='pl-20 pb-20 justify-content-end d-flex flex-column h-full banner mw-full '>
+<div class='gradient-bottom h-full position-absolute top-0 w-full' />
+<div class='gradient-left h-full position-absolute top-0 w-800' />
+<div class='pl-20 pb-20 justify-content-end d-flex flex-column h-full banner mw-full'>
   <div class='text-white font-weight-bold font-size-40 title w-800 mw-full overflow-hidden'>
     {current.title.userPreferred}
   </div>
@@ -90,11 +94,11 @@
       use:click={() => playMedia(current)}>
       Watch Now
     </button>
-    <button class='btn bg-dark-light btn-square ml-10 material-symbols-outlined font-size-16 shadow-none border-0' class:filled={current.isFavourite} use:click={toggleFavourite}>
-      favorite
+    <button class='btn bg-dark-light btn-square ml-10 d-flex align-items-center justify-content-center shadow-none border-0' use:click={toggleFavourite} disabled={!alToken}>
+      <Heart fill={current.isFavourite ? 'currentColor' : 'transparent'} size='1.5rem' />
     </button>
-    <button class='btn bg-dark-light btn-square ml-10 material-symbols-outlined font-size-16 shadow-none border-0' class:filled={current.mediaListEntry} use:click={toggleStatus}>
-      bookmark
+    <button class='btn bg-dark-light btn-square ml-10 d-flex align-items-center justify-content-center shadow-none border-0' use:click={toggleStatus} disabled={!alToken}>
+      <Bookmark fill={current.mediaListEntry ? 'currentColor' : 'transparent'} size='1.5rem' />
     </button>
   </div>
   <div class='d-flex'>
@@ -110,6 +114,12 @@
 </div>
 
 <style>
+  .gradient-bottom {
+    background: var(--banner-gradient-bottom);
+  }
+  .gradient-left {
+    background: var(--banner-gradient-left);
+  }
   .progress-badge {
     transition: width .8s ease;
   }
@@ -146,7 +156,7 @@
     -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
   }
-  img {
+  img, .gradient-bottom, .gradient-left {
     z-index: -1;
   }
   .font-size-40 {

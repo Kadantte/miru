@@ -20,9 +20,6 @@
   }
   const playButtonText = getPlayButtonText(media)
 
-  function volume (video) {
-    video.volume = 0.1
-  }
   let muted = true
   function toggleMute () {
     muted = !muted
@@ -31,42 +28,39 @@
   function play () {
     open('miru://anime/' + media.id)
   }
-  function lazyload (video) {
+  function lazyload (iframe) {
     if ('IntersectionObserver' in window) {
       const lazyVideoObserver = new IntersectionObserver(entries => {
         for (const { target, isIntersecting } of entries) {
           if (isIntersecting) {
-            video.src = video.dataset.src
+            iframe.src = iframe.dataset.src
             lazyVideoObserver.unobserve(target)
           }
         }
       })
-      lazyVideoObserver.observe(video.parentNode)
+      lazyVideoObserver.observe(iframe.parentNode)
     } else {
-      video.src = video.dataset.src
+      iframe.src = iframe.dataset.src
     }
   }
 </script>
 
-<div class='position-absolute w-350 h-400 absolute-container top-0 bottom-0 m-auto bg-dark-light z-30 rounded overflow-hidden pointer'>
-  <div class='banner position-relative bg-black'>
+<div class='position-absolute w-350 h-400 absolute-container z-10 top-0 bottom-0 m-auto bg-dark-light rounded overflow-hidden pointer'>
+  <div class='banner position-relative bg-black overflow-hidden'>
     <img src={media.bannerImage || ' '} alt='banner' class='img-cover w-full h-full' loading='lazy' />
     {#if media.trailer?.id}
       <div class='material-symbols-outlined filled position-absolute z-10 top-0 right-0 p-15 font-size-22' class:d-none={hide} use:click={toggleMute}>{muted ? 'volume_off' : 'volume_up'}</div>
       <!-- for now we use some invidious instance, would be nice to somehow get these links outselves, this redirects straight to some google endpoint -->
       <!-- eslint-disable-next-line svelte/valid-compile -->
-      <video data-src={`https://inv.tux.pizza/latest_version?id=${media.trailer.id}&itag=18`}
-        class='w-full h-full position-absolute left-0'
+      <iframe
+        class='w-full border-0 position-absolute left-0'
         class:d-none={hide}
-        playsinline
-        preload='none'
-        loading='lazy'
+        title={media.title.userPreferred}
+        allow='autoplay'
         use:lazyload
-        loop
-        use:volume
-        bind:muted
-        on:loadeddata={() => { hide = false }}
-        autoplay />
+        on:load={() => { hide = false }}
+        data-src={`https://www.youtube-nocookie.com/embed/${media.trailer?.id}?autoplay=1&controls=0&mute=${muted ? 1 : 0}&disablekb=1&loop=1&vq=medium&playlist=${media.trailer?.id}&cc_lang_pref=ja`}
+      />
     {/if}
   </div>
   <div class='w-full px-20'>
@@ -137,16 +131,16 @@
   .banner {
     height: 45%
   }
-  video {
+  /* video {
     object-fit: cover;
-  }
+  } */
   .banner::after {
     content: '';
     position: absolute;
     left: 0 ; bottom: 0;
     margin-bottom: -1px;
     width: 100%; height: 100% ;
-    background: linear-gradient(180deg, #0000 0%, #25292f00 80%, #25292fe3 95%, #25292f 100%);
+    background: var(--preview-card-gradient);
   }
   @keyframes load-in {
     from {
@@ -165,5 +159,18 @@
     animation: 0.3s ease 0s 1 load-in;
     left: -100%;
     right: -100%;
+  }
+  @keyframes delayedShow {
+    to {
+      visibility: visible;
+    }
+  }
+
+   iframe {
+    height: 200%;
+    top: 50%;
+    transform: translate(0, -50%);
+    visibility: hidden;
+    animation: 0s linear 0.5s forwards delayedShow;
   }
 </style>

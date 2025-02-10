@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import process from 'node:process'
 
-import { BrowserWindow, MessageChannelMain, Notification, app, dialog, ipcMain, nativeImage, powerMonitor, shell } from 'electron'
+import { BrowserWindow, MessageChannelMain, Notification, app, dialog, ipcMain, nativeImage, powerMonitor, session, shell } from 'electron'
 import electronShutdownHandler from '@paymoapp/electron-shutdown-handler'
 
 import { development } from './util.js'
@@ -10,6 +10,7 @@ import Protocol from './protocol.js'
 import Updater from './updater.js'
 import Dialog from './dialog.js'
 import store from './store.js'
+import Debug from './debugger.js'
 
 export default class App {
   webtorrentWindow = new BrowserWindow({
@@ -26,13 +27,8 @@ export default class App {
   mainWindow = new BrowserWindow({
     width: 1600,
     height: 900,
-    frame: process.platform === 'darwin', // Only keep the native frame on Mac
+    frame: process.platform === 'darwin',
     titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#17191c',
-      symbolColor: '#eee',
-      height: 28
-    },
     backgroundColor: '#17191c',
     autoHideMenuBar: true,
     webPreferences: {
@@ -48,8 +44,9 @@ export default class App {
 
   discord = new Discord(this.mainWindow)
   protocol = new Protocol(this.mainWindow)
-  updater = new Updater(this.mainWindow)
+  updater = new Updater(this.mainWindow, this.webtorrentWindow)
   dialog = new Dialog(this.webtorrentWindow)
+  debug = new Debug()
 
   constructor () {
     this.mainWindow.setMenuBarVisibility(false)
@@ -57,10 +54,17 @@ export default class App {
     this.mainWindow.once('ready-to-show', () => this.mainWindow.show())
     this.mainWindow.on('minimize', () => this.mainWindow.webContents.postMessage('visibilitychange', 'hidden'))
     this.mainWindow.on('restore', () => this.mainWindow.webContents.postMessage('visibilitychange', 'visible'))
-    ipcMain.on('devtools', () => this.webtorrentWindow.webContents.openDevTools())
+    ipcMain.on('torrent-devtools', () => this.webtorrentWindow.webContents.openDevTools())
+    ipcMain.on('ui-devtools', ({ sender }) => sender.openDevTools())
 
     this.mainWindow.on('closed', () => this.destroy())
+    this.webtorrentWindow.on('closed', () => this.destroy())
     ipcMain.on('close', () => this.destroy())
+    ipcMain.on('minimize', () => this.mainWindow?.minimize())
+    ipcMain.on('maximize', () => {
+      const focusedWindow = this.mainWindow
+      focusedWindow?.isMaximized() ? focusedWindow.unmaximize() : focusedWindow.maximize()
+    })
     app.on('before-quit', e => {
       if (this.destroyed) return
       e.preventDefault()
@@ -113,6 +117,13 @@ export default class App {
       this.mainWindow.webContents.openDevTools()
     }
 
+    session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+      if (details.url.startsWith('https://graphql.anilist.co')) {
+        details.requestHeaders.Referer = 'https://anilist.co'
+      }
+      callback({ cancel: false, requestHeaders: details.requestHeaders })
+    })
+
     let crashcount = 0
     this.mainWindow.webContents.on('render-process-gone', async (e, { reason }) => {
       if (reason === 'crashed') {
@@ -129,16 +140,22 @@ export default class App {
     ipcMain.on('portRequest', async ({ sender }) => {
       const { port1, port2 } = new MessageChannelMain()
       await torrentLoad
-      this.webtorrentWindow.webContents.postMessage('port', null, [port1])
       this.webtorrentWindow.webContents.postMessage('player', store.get('player'))
       this.webtorrentWindow.webContents.postMessage('torrentPath', store.get('torrentPath'))
+      this.webtorrentWindow.webContents.postMessage('port', null, [port1])
       sender.postMessage('port', null, [port2])
+    })
+
+    ipcMain.on('quit-and-install', () => {
+      if (this.updater.hasUpdate) {
+        this.destroy(true)
+      }
     })
   }
 
   destroyed = false
 
-  async destroy () {
+  async destroy (forceRunAfter = false) {
     if (this.destroyed) return
     this.webtorrentWindow.webContents.postMessage('destroy', null)
     await new Promise(resolve => {
@@ -146,6 +163,6 @@ export default class App {
       setTimeout(resolve, 5000).unref?.()
     })
     this.destroyed = true
-    if (!this.updater.install()) app.quit()
+    if (!this.updater.install(forceRunAfter)) app.quit()
   }
 }

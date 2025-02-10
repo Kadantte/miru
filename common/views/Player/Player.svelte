@@ -18,15 +18,16 @@
   import { SUPPORTS } from '@/modules/support.js'
   import 'rvfc-polyfill'
   import IPC from '@/modules/ipc.js'
+  import { ArrowDown, ArrowUp, Captions, Cast, CircleHelp, Contrast, FastForward, Keyboard, List, ListMusic, ListVideo, Maximize, Minimize, Pause, PictureInPicture, PictureInPicture2, Play, Proportions, RefreshCcw, Rewind, RotateCcw, RotateCw, ScreenShare, SkipBack, SkipForward, Users, Volume1, Volume2, VolumeX } from 'lucide-svelte'
 
   const emit = createEventDispatcher()
 
-  w2gEmitter.on('playerupdate', ({ detail }) => {
+  w2gEmitter.on('playerupdate', detail => {
     currentTime = detail.time
     paused = detail.paused
   })
 
-  w2gEmitter.on('setindex', ({ detail }) => {
+  w2gEmitter.on('setindex', detail => {
     playFile(detail)
   })
 
@@ -70,6 +71,7 @@
   let ended = false
   let volume = Number(localStorage.getItem('volume')) || 1
   let playbackRate = 1
+  let externalPlayerReady = false
   $: localStorage.setItem('volume', (volume || 0).toString())
   $: safeduration = (isFinite(duration) ? duration : currentTime) || 0
 
@@ -184,6 +186,7 @@
         const duration = current.media?.media?.duration
         client.removeEventListener('externalWatched', watchedListener)
         watchedListener = ({ detail }) => {
+          externalPlayerReady = true
           checkCompletionByTime(detail, duration)
         }
         client.on('externalWatched', watchedListener)
@@ -347,10 +350,10 @@
     video.currentTime = targetTime
   }
   function forward () {
-    seek(2)
+    seek(settings.value.playerSeek)
   }
   function rewind () {
-    seek(-2)
+    seek(-settings.value.playerSeek)
   }
   function selectAudio (id) {
     if (id !== undefined) {
@@ -414,6 +417,7 @@
       if (!subs?.renderer) {
         if (video !== document.pictureInPictureElement) {
           video.requestPictureInPicture()
+          resetImmerse()
           pip = true
         } else {
           document.exitPictureInPicture()
@@ -433,6 +437,7 @@
             canvasVideo.remove()
           }
           pip = true
+          resetImmerse()
           canvasVideo.srcObject = stream
           canvasVideo.onloadedmetadata = () => {
             canvasVideo.play()
@@ -463,11 +468,13 @@
     KeyX: {
       fn: () => screenshot(),
       id: 'screenshot_monitor',
+      icon: ScreenShare,
       type: 'icon',
       desc: 'Save Screenshot to Clipboard'
     },
     KeyI: {
       fn: () => toggleStats(),
+      icon: List,
       id: 'list',
       type: 'icon',
       desc: 'Toggle Stats'
@@ -475,24 +482,28 @@
     Backquote: {
       fn: () => (showKeybinds = !showKeybinds),
       id: 'help_outline',
+      icon: CircleHelp,
       type: 'icon',
       desc: 'Toggle Keybinds'
     },
     Space: {
       fn: () => playPause(),
       id: 'play_arrow',
+      play: Play,
       type: 'icon',
       desc: 'Play/Pause'
     },
     KeyN: {
       fn: () => playNext(),
       id: 'skip_next',
+      icon: SkipForward,
       type: 'icon',
       desc: 'Next Episode'
     },
     KeyB: {
       fn: () => playLast(),
       id: 'skip_previous',
+      icon: SkipBack,
       type: 'icon',
       desc: 'Previous Episode'
     },
@@ -501,24 +512,28 @@
         $settings.playerDeband = !$settings.playerDeband
       },
       id: 'deblur',
+      icon: Contrast,
       type: 'icon',
       desc: 'Toggle Video Debanding'
     },
     KeyM: {
       fn: () => (muted = !muted),
       id: 'volume_off',
+      icon: VolumeX,
       type: 'icon',
       desc: 'Toggle Mute'
     },
     KeyP: {
       fn: () => togglePopout(),
       id: 'picture_in_picture',
+      icon: PictureInPicture2,
       type: 'icon',
       desc: 'Toggle Picture in Picture'
     },
     KeyF: {
       fn: () => toggleFullscreen(),
       id: 'fullscreen',
+      icon: Maximize,
       type: 'icon',
       desc: 'Toggle Fullscreen'
     },
@@ -530,18 +545,21 @@
     KeyW: {
       fn: () => { fitWidth = !fitWidth },
       id: 'fit_width',
+      icon: Proportions,
       type: 'icon',
       desc: 'Toggle Video Cover'
     },
     KeyD: {
       fn: () => toggleCast(),
       id: 'cast',
+      icon: Cast,
       type: 'icon',
       desc: 'Toggle Cast [broken]'
     },
     KeyC: {
       fn: () => cycleSubtitles(),
       id: 'subtitles',
+      icon: Captions,
       type: 'icon',
       desc: 'Cycle Subtitles'
     },
@@ -551,8 +569,10 @@
         e.preventDefault()
         rewind()
       },
-      id: '-2',
-      desc: 'Rewind 2s'
+      id: 'fast_rewind',
+      icon: Rewind,
+      type: 'icon',
+      desc: 'Rewind'
     },
     ArrowRight: {
       fn: e => {
@@ -560,8 +580,10 @@
         e.preventDefault()
         forward()
       },
-      id: '+2',
-      desc: 'Seek 2s'
+      id: 'fast_forward',
+      icon: FastForward,
+      type: 'icon',
+      desc: 'Seek'
     },
     ArrowUp: {
       fn: e => {
@@ -570,6 +592,7 @@
         volume = Math.min(1, volume + 0.05)
       },
       id: 'volume_up',
+      icon: Volume2,
       type: 'icon',
       desc: 'Volume Up'
     },
@@ -580,23 +603,27 @@
         volume = Math.max(0, volume - 0.05)
       },
       id: 'volume_down',
+      icon: Volume1,
       type: 'icon',
       desc: 'Volume Down'
     },
     BracketLeft: {
       fn: () => { playbackRate = video.defaultPlaybackRate -= 0.1 },
       id: 'history',
+      icon: RotateCcw,
       type: 'icon',
       desc: 'Decrease Playback Rate'
     },
     BracketRight: {
       fn: () => { playbackRate = video.defaultPlaybackRate += 0.1 },
       id: 'update',
+      icon: RotateCw,
       type: 'icon',
       desc: 'Increase Playback Rate'
     },
     Backslash: {
       fn: () => { playbackRate = video.defaultPlaybackRate = 1 },
+      icon: RefreshCcw,
       id: 'schedule',
       type: 'icon',
       desc: 'Reset Playback Rate'
@@ -612,7 +639,7 @@
     if (!noSubs) subs.renderer.resize(video.videoWidth, video.videoHeight)
     const renderFrame = () => {
       context.drawImage(deband ? deband.canvas : video, 0, 0)
-      if (!noSubs) context.drawImage(subs.renderer?._canvas, 0, 0, canvas.width, canvas.height)
+      if (!noSubs && canvas.width && canvas.height) context.drawImage(subs.renderer?._canvas, 0, 0, canvas.width, canvas.height)
       loop = video.requestVideoFrameCallback(renderFrame)
     }
     renderFrame()
@@ -781,6 +808,7 @@
   }
 
   let currentSkippable = null
+  $: currentSkippable && settings.value.playerAutoSkip && skip()
   function checkSkippableChapters () {
     const current = findChapter(currentTime)
     if (current) {
@@ -933,10 +961,11 @@
 
   function checkCompletionByTime (currentTime, safeduration) {
     const fromend = Math.max(180, safeduration / 10)
-    if (safeduration && currentTime && video?.readyState && safeduration - fromend < currentTime) {
+    if (safeduration && currentTime && (video?.readyState || externalPlayerReady) && safeduration - fromend < currentTime) {
       if (media?.media?.episodes || media?.media?.nextAiringEpisode?.episode) {
         if (media.media.episodes || media.media.nextAiringEpisode?.episode > media.episode) {
           completed = true
+          externalPlayerReady = false
           anilistClient.alEntry(media)
         }
       }
@@ -1024,7 +1053,15 @@
   {#if showKeybinds && !miniplayer}
     <div class='position-absolute bg-tp w-full h-full z-50 font-size-12 p-20 d-flex align-items-center justify-content-center pointer' on:pointerup|self={() => (showKeybinds = false)} tabindex='-1' role='button'>
       <Keybinds let:prop={item} autosave={true} clickable={true}>
-        <div class:material-symbols-outlined={item?.type} class='bind' title={item?.desc} style='pointer-events: all !important;'>{item?.id || ''}</div>
+        {#if item?.type}
+          <div class='bind icon' title={item?.desc} style='pointer-events: all !important;'>
+            {#if item?.icon}
+              <svelte:component this={item.icon} size='2rem' />
+            {/if}
+          </div>
+        {:else}
+          <div class='bind font-weight-normal' title={item?.desc} style='pointer-events: all !important;'>{item?.id || ''}</div>
+        {/if}
       </Keybinds>
     </div>
   {/if}
@@ -1092,11 +1129,11 @@
       </div>
     </div>
     <div class='d-flex col-4 justify-content-center'>
-      <span class='material-symbols-outlined'> people </span>
+      <span class='icon'><Users size='3rem' class='pt-5' strokeWidth={3} /> </span>
       <span class='stats'>{torrent.peers || 0}</span>
-      <span class='material-symbols-outlined'> arrow_downward </span>
+      <span class='icon'><ArrowDown size='3rem' /></span>
       <span class='stats'>{fastPrettyBytes(torrent.down)}/s</span>
-      <span class='material-symbols-outlined'> arrow_upward </span>
+      <span class='icon'><ArrowUp size='3rem' /></span>
       <span class='stats'>{fastPrettyBytes(torrent.up)}/s</span>
     </div>
     <div class='col-4' />
@@ -1107,14 +1144,28 @@
     <!-- eslint-disable-next-line svelte/valid-compile -->
     <div class='w-full h-full position-absolute toggle-immerse d-none' on:dblclick={toggleFullscreen} on:click|self={toggleImmerse} />
     <div class='w-full h-full position-absolute mobile-focus-target d-none' use:click={() => { page = 'player' }} />
-    <span class='material-symbols-outlined ctrl' class:text-muted={!hasLast} class:disabled={!hasLast} use:click={playLast}> skip_previous </span>
-    <span class='material-symbols-outlined ctrl' use:click={rewind}> fast_rewind </span>
-    <span class='material-symbols-outlined ctrl' data-name='playPause' use:click={playPause}> {ended ? 'replay' : paused ? 'play_arrow' : 'pause'} </span>
-    <span class='material-symbols-outlined ctrl' use:click={forward}> fast_forward </span>
-    <span class='material-symbols-outlined ctrl' class:text-muted={!hasNext} class:disabled={!hasNext} use:click={playNext}> skip_next </span>
+    <!-- eslint-disable-next-line svelte/valid-compile -->
+    <span class='icon ctrl h-full align-items-center justify-content-end w-150 mw-full mr-auto' on:click={rewind}>
+      <Rewind size='3rem' />
+    </span>
+    <span class='icon ctrl' data-name='playPause' use:click={playPause}>
+      {#if ended}
+        <RotateCw size='3rem' />
+      {:else}
+        {#if paused}
+          <Play size='3rem' fill='white' />
+        {:else}
+          <Pause size='3rem' fill='white' />
+        {/if}
+      {/if}
+    </span>
+    <!-- eslint-disable-next-line svelte/valid-compile -->
+    <span class='icon ctrl h-full align-items-center w-150 mw-full ml-auto' on:click={forward}>
+      <FastForward size='3rem' />
+    </span>
     <div class='position-absolute bufferingDisplay' />
     {#if currentSkippable}
-      <button class='skip btn text-dark position-absolute bottom-0 right-0 mr-20 mb-5 font-weight-bold' use:click={skip}>
+      <button class='skip btn text-dark position-absolute bottom-0 right-0 mr-20 mb-5 font-weight-bold z-30' use:click={skip}>
         Skip {currentSkippable}
       </button>
     {/if}
@@ -1134,26 +1185,47 @@
       />
     </div>
     <div class='d-flex'>
-      <span class='material-symbols-outlined ctrl' title='Play/Pause [Space]' data-name='playPause' use:click={playPause}> {ended ? 'replay' : paused ? 'play_arrow' : 'pause'} </span>
+      <span class='icon ctrl m-5' title='Play/Pause [Space]' data-name='playPause' use:click={playPause}>
+        {#if ended}
+          <RotateCw size='2rem' />
+        {:else}
+          {#if paused}
+            <Play size='2rem' fill='white' />
+          {:else}
+            <Pause size='2rem' fill='white' />
+          {/if}
+        {/if}</span>
       {#if hasLast}
-        <span class='material-symbols-outlined ctrl' title='Last [B]' data-name='playLast' use:click={playLast}> skip_previous </span>
+        <span class='icon ctrl m-5' title='Last [B]' use:click={playLast}>
+          <SkipBack size='2rem' fill='white' />
+        </span>
       {/if}
       {#if hasNext}
-        <span class='material-symbols-outlined ctrl' title='Next [N]' data-name='playNext' use:click={playNext}> skip_next </span>
+        <span class='icon ctrl m-5' title='Next [N]' use:click={playNext}>
+          <SkipForward size='2rem' fill='white' />
+        </span>
       {/if}
       <div class='d-flex w-auto volume'>
-        <span class='material-symbols-outlined ctrl' title='Mute [M]' data-name='toggleMute' use:click={toggleMute}> {muted ? 'volume_off' : 'volume_up'} </span>
+        <span class='icon ctrl m-5' title='Mute [M]' data-name='toggleMute' use:click={toggleMute}>
+          {#if muted}
+            <VolumeX size='2rem' fill='white' />
+          {:else}
+            <Volume2 size='2rem' fill='white' />
+          {/if}
+        </span>
         <input class='ctrl h-full custom-range' type='range' min='0' max='1' step='any' data-name='setVolume' bind:value={volume} />
       </div>
       <div class='ts' class:mr-auto={playbackRate === 1}>{toTS(targetTime, safeduration > 3600 ? 2 : 3)} / {toTS(safeduration - targetTime, safeduration > 3600 ? 2 : 3)}</div>
       {#if playbackRate !== 1}
         <div class='ts mr-auto'>x{playbackRate.toFixed(1)}</div>
       {/if}
-      <span class='material-symbols-outlined ctrl keybinds' title='Keybinds [`]' use:click={() => (showKeybinds = true)}> keyboard </span>
+      <span class='icon ctrl mr-5 d-flex align-items-center keybinds' title='Keybinds [`]' use:click={() => (showKeybinds = true)}>
+        <Keyboard size='2.5rem' strokeWidth={2.5} />
+      </span>
       {#if 'audioTracks' in HTMLVideoElement.prototype && video?.audioTracks?.length > 1}
         <div class='dropdown dropup with-arrow' use:click={toggleDropdown}>
-          <span class='material-symbols-outlined ctrl' title='Audio Tracks'>
-            queue_music
+          <span class='icon ctrl mr-5 d-flex align-items-center h-full' title='Audio Tracks'>
+            <ListMusic size='2.5rem' strokeWidth={2.5} />
           </span>
           <div class='dropdown-menu dropdown-menu-left ctrl custom-radio p-10 pb-5 text-capitalize'>
             {#each video.audioTracks as track}
@@ -1167,8 +1239,8 @@
       {/if}
       {#if 'videoTracks' in HTMLVideoElement.prototype && video?.videoTracks?.length > 1}
         <div class='dropdown dropup with-arrow'>
-          <span class='material-symbols-outlined ctrl' title='Video Tracks'>
-            playlist_play
+          <span class='icon ctrl mr-5 d-flex align-items-center h-full' title='Video Tracks'>
+            <ListVideo size='2.5rem' strokeWidth={2.5} />
           </span>
           <div class='dropdown-menu dropdown-menu-left ctrl custom-radio p-10 pb-5 text-capitalize'>
             {#each video.videoTracks as track}
@@ -1182,8 +1254,8 @@
       {/if}
       {#if subHeaders?.length}
         <div class='subtitles dropdown dropup with-arrow' use:click={toggleDropdown}>
-          <span class='material-symbols-outlined ctrl' title='Subtitles [C]'>
-            subtitles
+          <span class='icon ctrl mr-5 d-flex align-items-center h-full' title='Subtitles [C]'>
+            <Captions size='2.5rem'strokeWidth={2.5} />
           </span>
           <div class='dropdown-menu dropdown-menu-right ctrl custom-radio p-10 pb-5 text-capitalize'>
             <input name='subtitle-radio-set' type='radio' id='subtitle-off-radio' value='off' checked={subHeaders && subs?.current === -1} />
@@ -1201,17 +1273,29 @@
         </div>
       {/if}
       {#if 'PresentationRequest' in window && canCast && current}
-        <span class='material-symbols-outlined ctrl' title='Cast Video [D]' data-name='toggleCast' use:click={toggleCast}>
-          {presentationConnection ? 'cast_connected' : 'cast'}
+        <span class='icon ctrl mr-5 d-flex align-items-center' title='Cast Video [D]' data-name='toggleCast' use:click={toggleCast}>
+          {#if presentationConnection}
+            <Cast size='2.5rem' fill='white' strokeWidth={0} />
+          {:else}
+            <Cast size='2.5rem'strokeWidth={2.5} />
+          {/if}
         </span>
       {/if}
       {#if 'pictureInPictureEnabled' in document}
-        <span class='material-symbols-outlined ctrl' title='Popout Window [P]' data-name='togglePopout' use:click={togglePopout}>
-          {pip ? 'featured_video' : 'picture_in_picture'}
+        <span class='icon ctrl mr-5 d-flex align-items-center' title='Popout Window [P]' data-name='togglePopout' use:click={togglePopout}>
+          {#if pip}
+            <PictureInPicture size='2.5rem' strokeWidth={2.5} />
+          {:else}
+            <PictureInPicture2 size='2.5rem'strokeWidth={2.5} />
+          {/if}
         </span>
       {/if}
-      <span class='material-symbols-outlined ctrl' title='Fullscreen [F]' data-name='toggleFullscreen' use:click={toggleFullscreen}>
-        {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+      <span class='icon ctrl mr-5 d-flex align-items-center' title='Fullscreen [F]' data-name='toggleFullscreen' use:click={toggleFullscreen}>
+        {#if isFullscreen}
+          <Minimize size='2.5rem' strokeWidth={2.5} />
+        {:else}
+          <Maximize size='2.5rem' strokeWidth={2.5} />
+        {/if}
       </span>
     </div>
   </div>
@@ -1374,11 +1458,10 @@
     height: 1px !important;
   }
 
-  .material-symbols-outlined {
+  .icon {
     font-size: 2.8rem;
     padding: 1.5rem;
     display: flex;
-    font-variation-settings: 'FILL' 1, 'wght' 300, 'GRAD' 100, 'opsz' 64;
   }
 
   .immersed {
@@ -1410,9 +1493,6 @@
     transition: 0.5s opacity ease 0.2s;
     filter: drop-shadow(0 0 8px #000);
   }
-  .disabled {
-    cursor: not-allowed !important;
-  }
 
   .buffering .middle .bufferingDisplay {
     opacity: 1 !important;
@@ -1434,7 +1514,6 @@
 
   .middle .ctrl {
     font-size: 4rem;
-    margin: 2rem;
     z-index: 3;
     display: none;
   }
@@ -1453,10 +1532,9 @@
     width: 100%;
     height: 100%;
   }
-  .miniplayer .middle .ctrl {
+  .miniplayer .middle .ctrl[data-name='playPause'] {
     display: flex;
     font-size: 2.8rem;
-    margin: 0.6rem;
   }
   .miniplayer .middle .ctrl[data-name='playPause'] {
     font-size: 5.625rem;
@@ -1523,10 +1601,15 @@
   .seekbar {
     font-size: 2rem !important;
   }
+  .miniplayer .mobile-focus-target {
+    display: block !important;
+  }
+  .miniplayer .mobile-focus-target:focus-visible {
+    background: hsla(209, 100%, 55%, 0.3);
+  }
 
   @media (pointer: none), (pointer: coarse) {
     .bottom .ctrl[data-name='playPause'],
-    .bottom .ctrl[data-name='playNext'],
     .bottom .volume,
     .bottom .keybinds {
       display: none !important;
@@ -1547,12 +1630,6 @@
     }
     .toggle-fullscreen {
       display: none !important;
-    }
-    .miniplayer .mobile-focus-target {
-      display: block !important;
-    }
-    .miniplayer .mobile-focus-target:focus-visible {
-      background: hsla(209, 100%, 55%, 0.3);
     }
   }
 

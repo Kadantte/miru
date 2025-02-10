@@ -5,191 +5,107 @@
   import { platformMap } from '@/views/Settings/Settings.svelte'
   import { settings } from '@/modules/settings.js'
   import { toast } from 'svelte-sonner'
-  import { click } from '@/modules/click.js'
   import { logout } from './Logout.svelte'
   import IPC from '@/modules/ipc.js'
+  import SidebarLink from './SidebarLink.svelte'
+  import { Clock, Download, Heart, Home, ListVideo, LogIn, Settings, Users } from 'lucide-svelte'
+  import { MagnifyingGlass } from 'svelte-radix'
+
+  let updateState = ''
+
+  IPC.on('update-available', () => {
+    updateState = 'downloading'
+  })
+  IPC.on('update-downloaded', () => {
+    updateState = 'ready'
+  })
+
   const view = getContext('view')
+
   export let page
-  const links = [
-    {
-      click: () => {
-        if (anilistClient.userID?.viewer?.data?.Viewer) {
-          $logout = true
-        } else {
-          IPC.emit('open', 'https://anilist.co/api/v2/oauth/authorize?client_id=4254&response_type=token') // Change redirect_url to miru://auth
-          if (platformMap[window.version.platform] === 'Linux') {
-            toast('Support Notification', {
-              description: "If your linux distribution doesn't support custom protocol handlers, you can simply paste the full URL into the app.",
-              duration: 300000
-            })
-          }
-        }
-      },
-      icon: 'login',
-      text: 'Login With AniList',
-      css: 'mt-auto'
-    },
-    {
-      click: () => {
-        page = 'home'
-      },
-      page: 'home',
-      icon: 'home',
-      text: 'Home'
-    },
-    {
-      click: () => {
-        page = 'search'
-      },
-      page: 'search',
-      icon: 'search',
-      text: 'Search'
-    },
-    {
-      click: () => {
-        page = 'schedule'
-      },
-      page: 'schedule',
-      icon: 'schedule',
-      text: 'Schedule'
-    },
-    {
-      click: () => {
-        if ($media) $view = $media.media
-      },
-      icon: 'queue_music',
-      text: 'Now Playing'
-    },
-    {
-      click: () => {
-        page = 'watchtogether'
-      },
-      page: 'watchtogether',
-      icon: 'groups',
-      text: 'Watch Together'
-    },
-    {
-      click: () => {
-        IPC.emit('open', 'https://github.com/sponsors/ThaUnknown/')
-      },
-      icon: 'favorite',
-      text: 'Support This App',
-      css: 'mt-auto donate'
-    },
-    {
-      click: () => {
-        page = 'settings'
-      },
-      page: 'settings',
-      icon: 'settings',
-      text: 'Settings'
+
+  function handleAlLogin () {
+    if (anilistClient.userID?.viewer?.data?.Viewer) {
+      $logout = true
+    } else {
+      IPC.emit('open', 'https://anilist.co/api/v2/oauth/authorize?client_id=4254&response_type=token') // Change redirect_url to miru://auth
+      if (platformMap[window.version.platform] === 'Linux') {
+        toast('Support Notification', {
+          description: "If your linux distribution doesn't support custom protocol handlers, you can simply paste the full URL into the app.",
+          duration: 300000
+        })
+      }
     }
-  ]
-  if (anilistClient.userID?.viewer?.data?.Viewer) {
-    links[0].image = anilistClient.userID.viewer.data.Viewer.avatar.medium
-    links[0].text = 'Logout'
   }
 </script>
 
 <div class='sidebar z-30 d-md-block' class:animated={$settings.expandingSidebar}>
   <div class='sidebar-overlay pointer-events-none h-full position-absolute' />
   <div class='sidebar-menu h-full d-flex flex-column justify-content-center align-items-center m-0 pb-5' class:animate={page !== 'player'}>
-    {#each links as { click: _click, icon, text, image, css, page: _page }, i (i)}
-      <div
-        class='sidebar-link sidebar-link-with-icon pointer overflow-hidden {css}'
-        use:click={_click}>
-        <span class='text-nowrap d-flex align-items-center w-full h-full'>
-          {#if image}
-            <span class='material-symbols-outlined rounded' class:filled={page === _page}>
-              <img src={image} class='h-30 rounded' alt='logo' />
-            </span>
-            <span class='text ml-20'>{text}</span>
-          {:else}
-            <span class='material-symbols-outlined rounded' class:filled={page === _page}>{icon}</span>
-            <span class='text ml-20'>{text}</span>
-          {/if}
-        </span>
-      </div>
-    {/each}
+    <SidebarLink click={handleAlLogin} icon='login' text={anilistClient.userID?.viewer?.data?.Viewer ? 'Logout' : 'Login With AniList'} css='mt-auto' {page} image={anilistClient.userID?.viewer?.data?.Viewer?.avatar.medium}>
+      <LogIn size='2rem' class='flex-shrink-0 p-5 w-30 h-30 m-5 rounded' />
+    </SidebarLink>
+    <SidebarLink click={() => { page = 'home' }} _page='home' text='Home' {page} let:active>
+      <Home size='2rem' class='flex-shrink-0 p-5 w-30 h-30 m-5 rounded' strokeWidth={active ? '3.5' : '2'} />
+    </SidebarLink>
+    <SidebarLink click={() => { page = 'search' }} _page='search' text='Search' {page} let:active>
+      <MagnifyingGlass size='2rem' class='flex-shrink-0 p-5 w-30 h-30 m-5 rounded' stroke-width={active ? '2' : '0'} stroke='currentColor' />
+    </SidebarLink>
+    <SidebarLink click={() => { page = 'schedule' }} _page='schedule' icon='schedule' text='Schedule' {page} let:active>
+      <Clock size='2rem' class='flex-shrink-0 p-5 w-30 h-30 m-5 rounded' strokeWidth={active ? '3.5' : '2'} />
+    </SidebarLink>
+    {#if $media?.media}
+      <SidebarLink click={() => { $view = $media.media }} icon='queue_music' text='Now Playing' {page} let:active>
+        <ListVideo size='2rem' class='flex-shrink-0 p-5 w-30 h-30 m-5 rounded' strokeWidth={active ? '3.5' : '2'} />
+      </SidebarLink>
+    {/if}
+    <SidebarLink click={() => { page = 'watchtogether' }} _page='watchtogether' icon='groups' text='Watch Together' {page} let:active>
+      <Users size='2rem' class='flex-shrink-0 p-5 w-30 h-30 m-5 rounded' strokeWidth={active ? '3.5' : '2'} />
+    </SidebarLink>
+    <SidebarLink click={() => { IPC.emit('open', 'https://github.com/sponsors/ThaUnknown/') }} icon='favorite' text='Support This App' css='mt-auto' {page} let:active>
+      <Heart size='2rem' class='flex-shrink-0 p-5 w-30 h-30 m-5 rounded donate' strokeWidth={active ? '3.5' : '2'} fill='currentColor' />
+    </SidebarLink>
+    {#if updateState === 'downloading'}
+      <SidebarLink click={() => { toast('Update is downloading...') }} icon='download' text='Update Downloading...' {page} let:active>
+        <Download size='2rem' class='flex-shrink-0 p-5 w-30 h-30 m-5 rounded' strokeWidth={active ? '3.5' : '2'} />
+      </SidebarLink>
+    {:else if updateState === 'ready'}
+      <SidebarLink click={() => { IPC.emit('quit-and-install') }} icon='download' text='Update Ready!' {page} let:active>
+        <Download size='2rem' class='flex-shrink-0 p-5 w-30 h-30 m-5 rounded update' strokeWidth={active ? '3.5' : '2'} />
+      </SidebarLink>
+    {/if}
+    <SidebarLink click={() => { page = 'settings' }} _page='settings' icon='settings' text='Settings' {page} let:active>
+      <Settings size='2rem' class='flex-shrink-0 p-5 w-30 h-30 m-5 rounded' strokeWidth={active ? '3.5' : '2'} />
+    </SidebarLink>
   </div>
 </div>
 
 <style>
-  @keyframes glow {
-    from {
-      text-shadow: 0 0 2rem #fa68b6;
-    }
-    to {
-      text-shadow: 0 0 1rem #fa68b6;
-    }
-  }
-  .animate .donate .material-symbols-outlined {
+  .sidebar .animate :global(.donate) {
     animation: glow 1s ease-in-out infinite alternate;
   }
-  .donate:hover .material-symbols-outlined {
-    background: #fff;
+  .sidebar :global(.donate):hover {
     color: #fa68b6 !important;
   }
-  .donate .material-symbols-outlined {
+  .sidebar :global(.donate) {
     font-variation-settings: 'FILL' 1;
     color: #fa68b6;
     text-shadow: 0 0 1rem #fa68b6;
   }
+  :global(.update) {
+    color: #47cb6a;
+    font-variation-settings: 'FILL' 1;
+  }
+  @keyframes glow {
+    from {
+      filter: drop-shadow(0 0 1rem #fa68b6);
+    }
+    to {
+      filter: drop-shadow(0 0 0.5rem #fa68b6);
+    }
+  }
   .sidebar-menu {
     padding-top: 10rem;
-  }
-  .text {
-    opacity: 1;
-    transition: opacity 0.8s cubic-bezier(0.25, 0.8, 0.25, 1);
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .sidebar-link > span {
-    color: #fff;
-    border-radius: 0.3rem;
-  }
-
-  .material-symbols-outlined {
-    color: #fff;
-    transition: background .8s cubic-bezier(0.25, 0.8, 0.25, 1), color .8s cubic-bezier(0.25, 0.8, 0.25, 1);
-  }
-
-  .sidebar-link:hover > span > *:nth-child(1) {
-    background: #fff;
-    color: var(--dark-color);
-  }
-
-  .sidebar-link {
-    width: 100%;
-    font-size: 1.4rem;
-    padding: 0.75rem 1.5rem;
-    height: 5.5rem;
-  }
-
-  .material-symbols-outlined {
-    font-size: 2.2rem;
-    min-width: 4rem;
-    width: 4rem;
-    height: 4rem;
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .sidebar-link img {
-    font-size: 2.2rem;
-    width: 3rem;
-    height: 3rem;
-    margin: 0.5rem;
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  img {
-    margin-right: var(--sidebar-brand-image-margin-right);
   }
 
   .sidebar {
