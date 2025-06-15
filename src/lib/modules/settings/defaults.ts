@@ -1,3 +1,5 @@
+import native from '../native'
+
 import SUPPORTS from './supports'
 
 import type { languageCodes, subtitleResolutions, videoResolutions } from './util'
@@ -26,14 +28,14 @@ export default {
   subtitleRenderHeight: SUPPORTS.isAndroid ? '720' : '0' as keyof typeof subtitleResolutions,
   subtitleLanguage: 'eng' as keyof typeof languageCodes,
   audioLanguage: 'jpn' as keyof typeof languageCodes,
-  enableDoH: true,
+  enableDoH: false,
   hideToTray: false,
   doHURL: 'https://cloudflare-dns.com/dns-query',
   disableSubtitleBlur: SUPPORTS.isAndroid,
   showDetailsInRPC: true,
   torrentPath: '',
   angle: 'default' as 'default' | 'd3d11'| 'd3d9' | 'warp' | 'gl' | 'gles' | 'swiftshader' | 'vulkan' | 'metal',
-  idleAnimation: true,
+  idleAnimation: native.defaultTransparency(),
   uiScale: 1,
   enableExternal: false,
   playerPath: '',
