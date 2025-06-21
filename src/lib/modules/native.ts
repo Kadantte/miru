@@ -60,6 +60,8 @@ export default Object.assign<Native, Partial<Native>>({
   focus: async () => undefined,
   close: async () => undefined,
   checkUpdate: async () => undefined,
+  updateAndRestart: async () => undefined,
+  updateReady: () => sleep(rnd(10_000)),
   toggleDiscordDetails: async () => undefined,
   setMediaSession: async (metadata) => { navigator.mediaSession.metadata = new MediaMetadata({ title: metadata.title, artist: metadata.description, artwork: [{ src: metadata.image }] }) },
   setPositionState: async e => navigator.mediaSession.setPositionState(e),
@@ -91,6 +93,9 @@ export default Object.assign<Native, Partial<Native>>({
   downloadProgress: async () => undefined,
   updateProgress: async () => undefined,
   torrentStats: async (): Promise<TorrentInfo> => ({ peers: rnd(), seeders: rnd(), leechers: rnd(), progress: Math.random(), down: rnd(100000000), up: rnd(100000000), name: 'Amebku.webm', downloaded: rnd(100000), hash: '1234567890abcdef', size: 1234567890, eta: rnd() }),
-  torrents: async (): Promise<TorrentInfo[]> => [{ peers: rnd(), seeders: rnd(), leechers: rnd(), progress: Math.random(), down: rnd(100000000), up: rnd(100000000), name: 'Amebku.webm', downloaded: rnd(100000), hash: '1234567890abcdef', size: 1234567890, eta: rnd() }]
+  torrents: async (): Promise<TorrentInfo[]> => [{ peers: rnd(), seeders: rnd(), leechers: rnd(), progress: Math.random(), down: rnd(100000000), up: rnd(100000000), name: 'Amebku.webm', downloaded: rnd(100000), hash: '1234567890abcdef', size: 1234567890, eta: rnd() }],
+  defaultTransparency: () => false,
+  errors: async () => undefined,
+  debug: async () => undefined
   // @ts-expect-error idk
 }, globalThis.native as Partial<Native>)

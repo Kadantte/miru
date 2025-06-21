@@ -61,6 +61,7 @@
   import { settings, SUPPORTS } from '$lib/modules/settings'
   import { server } from '$lib/modules/torrent'
   import { w2globby } from '$lib/modules/w2g/lobby'
+  import { getAnimeProgress, setAnimeProgress } from '$lib/modules/watchProgress'
   import { toTS, fastPrettyBits } from '$lib/utils'
 
   export let mediaInfo: MediaInfo
@@ -492,7 +493,12 @@
       desc: 'Toggle Stats'
     },
     Space: {
-      fn: () => playPause(),
+      fn: (e) => {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+        e.stopPropagation()
+        playPause()
+      },
       id: 'play_arrow',
       icon: Play,
       type: 'icon',
@@ -643,7 +649,6 @@
 
   const torrentstats = server.stats
 
-  // @ts-expect-error bad type infer
   $condition = () => !isMiniplayer
 
   let ff = false
@@ -684,10 +689,33 @@
     return { destroy: () => ctrl.abort() }
   }
 
-  $: $w2globby?.playerStateChanged({ paused, time: Math.floor(currentTime) })
-  $: $w2globby?.on('player', state => {
+  function updateState (state: { paused: boolean, time: number }) {
     currentTime = state.time
     paused = state.paused
+  }
+
+  $: $w2globby?.playerStateChanged({ paused, time: Math.floor(currentTime) })
+  $: $w2globby?.on('player', updateState)
+
+  function loadAnimeProgress () {
+    if (!mediaInfo.media.id || !mediaInfo.episode) return
+
+    const animeProgress = getAnimeProgress(mediaInfo.media.id)
+    if (!animeProgress || animeProgress.episode !== mediaInfo.episode) return
+
+    currentTime = Math.max(animeProgress.currentTime - 5, 0)
+  }
+
+  function saveAnimeProgress () {
+    if (!mediaInfo.media.id || !mediaInfo.episode) return
+
+    if (buffering || paused || video.readyState < 4) return
+
+    setAnimeProgress(mediaInfo.media.id, { episode: mediaInfo.episode, currentTime: video.currentTime, safeduration })
+  }
+  const saveProgressLoop = setInterval(saveAnimeProgress, 10000)
+  onDestroy(() => {
+    clearInterval(saveProgressLoop)
   })
 </script>
 
@@ -715,6 +743,7 @@
     on:click={() => isMiniplayer ? goto('/app/player') : playPause()}
     on:dblclick={fullscreen}
     on:loadeddata={checkAudio}
+    on:loadedmetadata={loadAnimeProgress}
     on:timeupdate={checkSkippableChapters}
     on:timeupdate={checkCompletion}
     on:loadedmetadata={autoPlay}

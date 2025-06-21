@@ -79,6 +79,8 @@ export interface Native {
   openUIDevtools: () => Promise<void>
   openTorrentDevtools: () => Promise<void>
   checkUpdate: () => Promise<void>
+  updateAndRestart: () => Promise<void>
+  updateReady: () => Promise<void>
   toggleDiscordDetails: (enabled: boolean) => Promise<void>
   setMediaSession: (metadata: SessionMetadata, mediaId: number) => Promise<void>
   setPositionState: (state?: MediaPositionState) => Promise<void>
@@ -91,6 +93,7 @@ export interface Native {
   attachments: (hash: string, id: number) => Promise<Attachment[]>
   tracks: (hash: string, id: number) => Promise<Array<{ number: string, language?: string, type: string, header?: string, name?: string }>>
   subtitles: (hash: string, id: number, cb: (subtitle: { text: string, time: number, duration: number }, trackNumber: number) => void) => Promise<void>
+  errors: (cb: (error: Error) => void) => Promise<void>
   chapters: (hash: string, id: number) => Promise<Array<{ start: number, end: number, text: string }>>
   torrentStats: (hash: string) => Promise<TorrentInfo>
   torrents: () => Promise<TorrentInfo[]>
@@ -106,6 +109,8 @@ export interface Native {
   isApp: boolean
   version: () => Promise<string>
   navigate: (cb: (data: { target: string, value: string | undefined }) => void) => Promise<void>
+  defaultTransparency: () => boolean
+  debug: (levels: string) => Promise<void>
 }
 
 declare global {
@@ -136,10 +141,10 @@ declare global {
     }
   }
 
-   declare namespace svelteHTML {
-     interface HTMLAttributes<T> {
-       'on:navigate'?: CompositionEventHandler<T>
-     }
+  declare namespace svelteHTML {
+    interface HTMLAttributes<T> {
+      'on:navigate'?: CompositionEventHandler<T>
+    }
   }
 
   // declare module '*.svelte' {
