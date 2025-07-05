@@ -29,7 +29,7 @@ export default new class AuthAggregator {
   }
 
   kitsu () {
-    return !!kitsu.viewer.value?.id
+    return !!kitsu.id()
   }
 
   checkAuth () {
@@ -38,14 +38,14 @@ export default new class AuthAggregator {
 
   id () {
     if (this.anilist()) return client.viewer.value!.viewer?.id
-    if (this.kitsu()) return kitsu.viewer.value?.id
+    if (this.kitsu()) return kitsu.id()
 
     return -1
   }
 
   profile (): ResultOf<typeof UserFrag> | undefined {
     if (this.anilist()) return client.viewer.value?.viewer ?? undefined
-    if (this.kitsu()) return kitsu.viewer.value
+    if (this.kitsu()) return kitsu.profile()
   }
 
   mediaListEntry (media: Pick<Media, 'mediaListEntry' | 'id'>) {
@@ -64,11 +64,12 @@ export default new class AuthAggregator {
 
   // QUERIES/MUTATIONS
 
-  schedule () {
-    if (this.anilist()) return client.schedule()
-    if (this.kitsu()) return kitsu.schedule()
+  schedule (onList = true) {
+    console.log('re-running')
+    if (this.anilist()) return client.schedule(undefined, onList)
+    if (this.kitsu()) return kitsu.schedule(onList)
 
-    return local.schedule()
+    return local.schedule(onList)
   }
 
   toggleFav (id: number) {
@@ -106,46 +107,47 @@ export default new class AuthAggregator {
 
   watch (media: Media, progress: number) {
     // TODO: auto re-watch status
-    // if (media.status !== 'FINISHED' && media.status !== 'RELEASING') return // this turned out to be a bad idea, anilist sometimes delays status changes by up to a day... yikes
     const totalEps = episodes(media) ?? 1 // episodes or movie which is single episode
     if (totalEps < progress) return // woah, bad data from resolver?!
 
     const currentProgress = media.mediaListEntry?.progress ?? 0
     if (currentProgress >= progress) return
 
+    // there's an edge case here that episodes returns 1, because anilist doesn't have episode count for an airing show without an expected end date
+    // this can set a media to completed when it shouldn't be, so we check if the media is finished or has episodes
+    const canBeCompleted = media.status === 'FINISHED' || media.episodes != null
+
     const status =
-      totalEps === progress
+      totalEps === progress && canBeCompleted
         ? 'COMPLETED'
         : media.mediaListEntry?.status === 'REPEATING' ? 'REPEATING' : 'CURRENT'
 
-    const repeat = (media.mediaListEntry?.repeat ?? 0) + (totalEps === progress ? 1 : 0)
-
     const lists = (media.mediaListEntry?.customLists as Array<{enabled: boolean, name: string}> | undefined)?.filter(({ enabled }) => enabled).map(({ name }) => name) ?? []
 
-    this.entry({ id: media.id, progress, repeat, status, lists })
+    this.entry({ id: media.id, progress, status, lists })
   }
 
   delete (media: Media) {
-    const syncSettings = get(this.syncSettings)
+    const sync = get(this.syncSettings)
 
     return Promise.allSettled([
-      this.anilist() && syncSettings.al && client.deleteEntry(media),
-      this.kitsu() && syncSettings.kitsu && kitsu.deleteEntry(media),
-      syncSettings.local && local.deleteEntry(media)
+      sync.al && this.anilist() && client.deleteEntry(media),
+      sync.kitsu && this.kitsu() && kitsu.deleteEntry(media),
+      sync.local && local.deleteEntry(media)
     ])
   }
 
   entry (variables: VariablesOf<typeof Entry>) {
-    const syncSettings = get(this.syncSettings)
+    const sync = get(this.syncSettings)
     variables.lists ??= []
     if (!variables.lists.includes('Watched using Hayase')) {
       variables.lists.push('Watched using Hayase')
     }
 
     return Promise.allSettled([
-      this.anilist() && syncSettings.al && client.entry(variables),
-      this.kitsu() && syncSettings.kitsu && kitsu.entry(variables),
-      syncSettings.local && local.entry(variables)
+      sync.al && this.anilist() && client.entry(variables),
+      sync.kitsu && this.kitsu() && kitsu.entry(variables),
+      sync.local && local.entry(variables)
     ])
   }
 }()
