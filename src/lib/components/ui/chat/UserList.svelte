@@ -11,14 +11,11 @@
   $: processed = Object.entries(users)
 </script>
 
-<div class='flex flex-col w-72 max-w-full px-5 overflow-hidden'>
-  <div class='text-md font-bold pl-1 pb-2'>
-    {processed.length} Member(s)
-  </div>
+<div class='flex flex-col w-full md:w-72 max-w-full px-5 overflow-y-auto md:max-h-full max-h-[40%] min-h-0 pb-2'>
   <div>
     {#each processed as [key, user] (key)}
       <div class='flex items-center pb-2'>
-        <img src={user.avatar?.large} alt='ProfilePicture' class='w-10 h-10 rounded-full p-1 mt-auto' loading='lazy' decoding='async' />
+        <img src={user.avatar?.large ?? 'https://s4.anilist.co/file/anilistcdn/user/avatar/large/default.png'} alt='ProfilePicture' class='w-10 h-10 rounded-full p-1 mt-auto' loading='lazy' decoding='async' />
         <div class='text-md pl-2'>
           {user.name}
         </div>

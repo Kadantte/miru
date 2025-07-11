@@ -1,9 +1,10 @@
 <script lang='ts'>
   import Play from 'lucide-svelte/icons/play'
 
+  import { playEp } from '../player/mediahandler.svelte'
+
   import type { Media } from '$lib/modules/anilist'
 
-  import { searchStore } from '$lib'
   import { Button, iconSizes, type Props } from '$lib/components/ui/button'
   import { list, progress } from '$lib/modules/auth'
   import { clickwrap, keywrap } from '$lib/modules/navigate'
@@ -17,7 +18,7 @@
   export let size: NonNullable<$$Props['size']> = 'xs'
   function play () {
     const episode = (progress(media) ?? 0) + 1
-    searchStore.set({ media, episode })
+    $playEp(media, episode)
   }
 </script>
 
@@ -25,7 +26,7 @@
   <Play fill='currentColor' class='mr-2' size={iconSizes[size]} />
   {@const status = list(media)}
   {#if status === 'COMPLETED'}
-    Rewatch Now
+    Rewatch
   {:else if status === 'CURRENT' || status === 'REPEATING' || status === 'PAUSED'}
     Continue
   {:else}

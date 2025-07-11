@@ -9,6 +9,42 @@ export function cn (...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+type MediaQuery<Query extends Record<string, string> = Record<string, string>> = {
+  [K in keyof Query]?: boolean | string;
+}
+
+function calculateMedia (mqls: Record<string, MediaQueryList>) {
+  const media: MediaQuery = {}
+  for (const [key, query] of Object.entries(mqls)) {
+    media[key] = query.matches
+  }
+  return media
+}
+
+const mediaQueries = {
+  sm: '(min-width: 640px)',
+  md: '(min-width: 768px)',
+  lg: '(min-width: 1024px)',
+  xl: '(min-width: 1280px)',
+  '2xl': '(min-width: 1536px)',
+  '3xl': '(min-width: 1920px)',
+  '4xl': '(min-width: 2560px)',
+  '5xl': '(min-width: 3840px)',
+  '6xl': '(min-width: 5120px)'
+} as const
+
+export const breakpoints = readable<MediaQuery<typeof mediaQueries>>({}, set => {
+  const ctrl = new AbortController()
+  const mqls: Record<string, MediaQueryList> = {}
+  const updateMedia = () => set(calculateMedia(mqls))
+  for (const [key, query] of Object.entries(mediaQueries)) {
+    mqls[key] = window.matchMedia(query)
+    mqls[key].addEventListener('change', updateMedia, { signal: ctrl.signal })
+  }
+  updateMedia()
+  return () => ctrl.abort()
+})
+
 interface FlyAndScaleParams {
   y?: number
   x?: number
@@ -65,6 +101,8 @@ export const flyAndScale = (
 
 export const sleep = (t: number) => new Promise<void>(resolve => setTimeout(resolve, t))
 
+export const highEntropyValues = 'userAgentData' in navigator && navigator.userAgentData.getHighEntropyValues(['architecture', 'platform', 'platformVersion'])
+
 export function safeLocalStorage<T> (key: string): T | undefined {
   try {
     const value = localStorage.getItem(key)
@@ -87,15 +125,7 @@ export const debounce = <T extends (...args: any[]) => unknown>(
   }
 }
 
-const mql = typeof matchMedia !== 'undefined' ? matchMedia('(min-width: 768px)') : null
-export const isMobile = readable(!mql?.matches, set => {
-  const check: ({ matches }: { matches: boolean }) => void = ({ matches }) => set(!matches)
-  mql?.addEventListener('change', check)
-  return () => mql?.removeEventListener('change', check)
-})
-
 const formatter = new Intl.RelativeTimeFormat('en')
-const formatterShort = new Intl.RelativeTimeFormat('en', { style: 'short' })
 const ranges: Partial<Record<Intl.RelativeTimeFormatUnit, number>> = {
   years: 3600 * 24 * 365,
   months: 3600 * 24 * 30,
@@ -117,16 +147,33 @@ export function since (date: Date) {
   }
   return 'now'
 }
-export function eta (date: Date) {
-  const secondsElapsed = (date.getTime() - Date.now()) / 1000
-  for (const _key in ranges) {
-    const key = _key as Intl.RelativeTimeFormatUnit
-    if ((ranges[key] ?? 0) < Math.abs(secondsElapsed)) {
-      const delta = secondsElapsed / (ranges[key] ?? 0)
-      return formatterShort.format(Math.round(delta), key)
+export function eta (seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0s'
+
+  const units = [
+    { label: 'y', secs: 31536000 },
+    { label: 'mo', secs: 2592000 },
+    { label: 'd', secs: 86400 },
+    { label: 'h', secs: 3600 },
+    { label: 'm', secs: 60 },
+    { label: 's', secs: 1 }
+  ]
+
+  let remaining = Math.floor(seconds)
+  const parts: string[] = []
+
+  for (const { label, secs } of units) {
+    if (remaining >= secs) {
+      const value = Math.floor(remaining / secs)
+      parts.push(`${value}${label}`)
+      remaining %= secs
+      // Only show up to two largest units (e.g., "1h 2m", "2m 3s")
+      if (parts.length === 2) break
     }
   }
-  return 'now'
+
+  // If nothing matched, show "0s"
+  return parts.length ? parts.join(' ') : '0s'
 }
 const bytes = [' B', ' kB', ' MB', ' GB', ' TB']
 export function fastPrettyBytes (num: number) {
@@ -176,45 +223,23 @@ export interface TraceAnime {
   image: string
 }
 
-export async function traceAnime (image: File) { // WAIT lookup logic
-  const options = {
-    method: 'POST',
-    body: image,
-    headers: { 'Content-type': image.type }
+export async function traceAnime (image: File | string) { // WAIT lookup logic
+  let res: Response
+  if (image instanceof File) {
+    res = await fetch('https://api.trace.moe/search?cutBorders', {
+      method: 'POST',
+      body: image,
+      headers: { 'Content-type': image.type }
+    })
+  } else {
+    res = await fetch(`https://api.trace.moe/search?cutBorders&url=${image}`)
   }
-  const url = 'https://api.trace.moe/search'
-  // let url = `https://api.trace.moe/search?cutBorders&url=${image}`
-
-  const res = await fetch(url, options)
   const { result } = await res.json() as { result: TraceAnime[] }
 
   if (result.length) {
     return result
-    // search.value = {
-    //   clearNext: true,
-    //   load: (page = 1, perPage = 50, variables = {}) => {
-    //     const res = anilistClient.searchIDS({ page, perPage, id: ids, ...SectionsManager.sanitiseObject(variables) }).then(res => {
-    //       for (const index in res.data?.Page?.media) {
-    //         const media = res.data.Page.media[index]
-    //         const counterpart = result.find(({ anilist }) => anilist === media.id)
-    //         res.data.Page.media[index] = {
-    //           media,
-    //           episode: counterpart.episode,
-    //           similarity: counterpart.similarity,
-    //           episodeData: {
-    //             image: counterpart.image,
-    //             video: counterpart.video
-    //           }
-    //         }
-    //       }
-    //       res.data?.Page?.media.sort((a, b) => b.similarity - a.similarity)
-    //       return res
-    //     })
-    //     return SectionsManager.wrapResponse(res, result.length, 'episode')
-    //   }
-    // }
   } else {
-    throw new Error('Search Failed \n Couldn\'t find anime for specified image! Try to remove black bars, or use a more detailed image.')
+    throw new Error('Search Failed\nCouldn\'t find anime for specified image! Try to remove black bars, or use a more detailed image.')
   }
 }
 
@@ -278,4 +303,8 @@ export const safefetch = async <T> (_fetch: typeof fetch, ...args: Parameters<ty
 
 export function arrayEqual <T> (a: T[], b: T[]) {
   return a.length === b.length && a.every((v, i) => v === b[i])
+}
+
+export function nextTick () {
+  return new Promise<void>(resolve => queueMicrotask(resolve))
 }

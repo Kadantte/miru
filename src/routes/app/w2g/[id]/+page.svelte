@@ -6,19 +6,17 @@
   import { Button } from '$lib/components/ui/button'
   import { Messages, UserList } from '$lib/components/ui/chat'
   import { Textarea } from '$lib/components/ui/textarea'
-  import { W2GClient } from '$lib/modules/w2g'
 </script>
 
 <script lang='ts'>
   import { onDestroy } from 'svelte'
 
   import { goto } from '$app/navigation'
+  import { Separator } from '$lib/components/ui/separator'
   import native from '$lib/modules/native'
   import { w2globby } from '$lib/modules/w2g/lobby'
 
   export let data
-
-  $w2globby ??= new W2GClient(data.id, false)
 
   $: users = $w2globby!.peers
   $: messages = $w2globby!.messages
@@ -29,11 +27,13 @@
   function sendMessage () {
     $w2globby?.message(message.trim())
     message = ''
+    rows = 1
   }
 
   async function checkInput (e: KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey && message.trim()) {
       sendMessage()
+      e.preventDefault()
     } else {
       rows = message.split('\n').length || 1
     }
@@ -42,7 +42,7 @@
     rows = message.split('\n').length || 1
   }
 
-  $: prcoessedUsers = Object.values($users).map(({ user }) => user)
+  $: processedUsers = Object.values($users).map(({ user }) => user)
 
   function quit () {
     goto('/app/home/')
@@ -56,10 +56,19 @@
   })
 </script>
 
-<div class='flex flex-col w-full relative px-md-4 h-full overflow-hidden'>
-  <div class='flex md:flex-row flex-col-reverse w-full h-full pt-4'>
-    <div class='flex flex-col justify-end overflow-hidden flex-grow px-4 md:pb-4'>
-      <Messages {messages} />
+<div class='flex flex-col w-full relative h-full overflow-clip'>
+  <div class='space-y-0.5 px-10 pt-10'>
+    <h2 class='text-2xl font-bold'>Watch Together <span class='text-muted-foreground text-lg ml-4 font-semibold'>{$w2globby?.code}</span></h2>
+    <p class='text-muted-foreground'>
+      Watch videos together with friends in real-time. You can invite others to your lobby and chat while watching.
+    </p>
+    <Separator class='!my-6' />
+  </div>
+  <div class='flex md:flex-row flex-col-reverse w-full h-full min-h-0'>
+    <div class='flex flex-col justify-end overflow-clip flex-grow px-4 pb-4 h-full min-h-0'>
+      <div class='h-full overflow-y-scroll min-h-0 w-full'>
+        <Messages {messages} />
+      </div>
       <div class='flex mt-4 gap-2'>
         <Button on:click={quit} size='icon' class='border-0 shrink-0' variant='outline'>
           <DoorOpen size={18} />
@@ -79,6 +88,6 @@
         </Button>
       </div>
     </div>
-    <UserList users={prcoessedUsers} />
+    <UserList users={processedUsers} />
   </div>
 </div>

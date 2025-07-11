@@ -38,17 +38,55 @@ export interface Attachment {
 }
 
 export interface TorrentInfo {
-  peers: number
-  progress: number
-  down: number
-  up: number
   name: string
+  progress: number
+  size: {
+    total: number
+    downloaded: number
+    uploaded: number
+  }
+  speed: {
+    down: number
+    up: number
+  }
+  time: {
+    remaining: number
+    elapsed: number
+  }
+  peers: {
+    seeders: number
+    leechers: number
+    wires: number
+  }
+  pieces: {
+    total: number
+    size: number
+  }
   hash: string
-  seeders: number
-  leechers: number
+}
+
+export interface PeerInfo {
+  ip: string
+  seeder: boolean
+  client: string
+  progress: number
+  size: {
+    downloaded: number
+    uploaded: number
+  }
+  speed: {
+    down: number
+    up: number
+  }
+  flags: Array<'incoming' | 'outgoing' | 'utp' | 'encrypted'>
+  time: number
+}
+
+export interface FileInfo {
+  name: string
   size: number
-  downloaded: number
-  eta: number
+  progress: number
+  selections: number
 }
 
 export interface TorrentSettings {
@@ -62,8 +100,20 @@ export interface TorrentSettings {
   torrentPeX: boolean
 }
 
+export interface LibraryEntry {
+  mediaID: number
+  episode: number
+  files: number
+  hash: string
+  progress: number
+  date: number
+  size: number
+  name: string
+}
+
 export interface Native {
   authAL: (url: string) => Promise<AuthResponse>
+  authMAL: (url: string) => Promise<{ code: string, state: string }>
   restart: () => Promise<void>
   openURL: (url: string) => Promise<void>
   share: Navigator['share']
@@ -79,6 +129,8 @@ export interface Native {
   openUIDevtools: () => Promise<void>
   openTorrentDevtools: () => Promise<void>
   checkUpdate: () => Promise<void>
+  updateAndRestart: () => Promise<void>
+  updateReady: () => Promise<void>
   toggleDiscordDetails: (enabled: boolean) => Promise<void>
   setMediaSession: (metadata: SessionMetadata, mediaId: number) => Promise<void>
   setPositionState: (state?: MediaPositionState) => Promise<void>
@@ -87,13 +139,25 @@ export interface Native {
   checkAvailableSpace: (_?: unknown) => Promise<number>
   checkIncomingConnections: (port: number) => Promise<boolean>
   updatePeerCounts: (hashes: string[]) => Promise<Array<{ hash: string, complete: string, downloaded: string, incomplete: string }>>
-  playTorrent: (id: string) => Promise<TorrentFile[]>
+  playTorrent: (id: string, mediaID: number, episode: number) => Promise<TorrentFile[]>
+  library: () => Promise<LibraryEntry[]>
   attachments: (hash: string, id: number) => Promise<Attachment[]>
   tracks: (hash: string, id: number) => Promise<Array<{ number: string, language?: string, type: string, header?: string, name?: string }>>
   subtitles: (hash: string, id: number, cb: (subtitle: { text: string, time: number, duration: number }, trackNumber: number) => void) => Promise<void>
+  errors: (cb: (error: Error) => void) => Promise<void>
   chapters: (hash: string, id: number) => Promise<Array<{ start: number, end: number, text: string }>>
-  torrentStats: (hash: string) => Promise<TorrentInfo>
-  torrents: () => Promise<TorrentInfo[]>
+  torrentInfo: (hash: string) => Promise<TorrentInfo>
+  peerInfo: (hash: string) => Promise<PeerInfo[]>
+  fileInfo: (hash: string) => Promise<FileInfo[]>
+  protocolStatus: (hash: string) => Promise<{
+    dht: boolean
+    lsd: boolean
+    pex: boolean
+    nat: boolean
+    forwarding: boolean
+    persisting: boolean
+    streaming: boolean
+  }>
   setDOH: (dns: string) => Promise<void>
   cachedTorrents: () => Promise<string[]>
   downloadProgress: (percent: number) => Promise<void>
@@ -106,6 +170,8 @@ export interface Native {
   isApp: boolean
   version: () => Promise<string>
   navigate: (cb: (data: { target: string, value: string | undefined }) => void) => Promise<void>
+  defaultTransparency: () => boolean
+  debug: (levels: string) => Promise<void>
 }
 
 declare global {
@@ -117,6 +183,7 @@ declare global {
 
     interface PageState {
       search?: VariablesOf<typeof Search>
+      image?: File | string
     }
     // interface Platform {}
   }
@@ -136,10 +203,10 @@ declare global {
     }
   }
 
-   declare namespace svelteHTML {
-     interface HTMLAttributes<T> {
-       'on:navigate'?: CompositionEventHandler<T>
-     }
+  declare namespace svelteHTML {
+    interface HTMLAttributes<T> {
+      'on:navigate'?: CompositionEventHandler<T>
+    }
   }
 
   // declare module '*.svelte' {

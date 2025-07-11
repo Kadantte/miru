@@ -40,7 +40,7 @@
   import { Switch } from '$lib/components/ui/switch'
   import native from '$lib/modules/native'
   import { dragScroll } from '$lib/modules/navigate'
-  import { settings } from '$lib/modules/settings'
+  import { settings, SUPPORTS } from '$lib/modules/settings'
 
   const hasForwarding = persisted('torrent-port-forwarding', false)
 
@@ -49,7 +49,10 @@
   async function checkPortAvailability (port: number): Checks['promise'] {
     const res = await native.checkIncomingConnections(port)
     $hasForwarding = res
-    if (res) return { status: 'success', text: 'Port forwarding is available.' }
+    if (res) {
+      $settings.maxConns = 120
+      return { status: 'success', text: 'Port forwarding is available.' }
+    }
     return { status: 'error', text: 'Not available. Peer discovery will suffer. Streaming old, poorly seeded anime might be impossible.', slot: 'port' }
   }
 
@@ -65,7 +68,7 @@
 <Progress step={1} />
 
 <div class='space-y-3 lg:max-w-4xl pt-5 h-full overflow-y-auto' use:dragScroll>
-  <SettingCard class='bg-transparent' let:id title='Streamed Download' description="Only downloads the single file that's currently being watched, instead of downloading an entire batch of episodes. Saves bandwidth and reduces strain on the peer swarm.">
+  <SettingCard class='bg-transparent' let:id title='Streamed Download' description="Only downloads the data that's directly needed for playback, down to the minute, instead of downloading an entire batch of episodes. Will not buffer ahead more than a few seconds, and will stop downloading once the few second buffer is filled. Saves bandwidth and reduces strain on the peer swarm.">
     <Switch {id} bind:checked={$settings.torrentStreamedDownload} />
   </SettingCard>
   <SettingCard class='bg-transparent' let:id title='Transfer Speed Limit' description='Download/Upload speed limit for torrents, higher values increase CPU usage, and values higher than your storage write speeds will quickly fill up RAM.'>
@@ -80,6 +83,14 @@
   <SettingCard class='bg-transparent' let:id title='Forwarded Torrent Port' description='Forwarded port used for incoming torrent connections. 0 automatically finds an open unused port. Change this to a specific port if your VPN exposes only a specific port.'>
     <Input type='number' inputmode='numeric' pattern='[0-9]*' min='0' max='65536' bind:value={$settings.torrentPort} {id} class='w-32 shrink-0 bg-background' />
   </SettingCard>
+  {#if !SUPPORTS.isAndroid}
+    <SettingCard class='bg-transparent' let:id title='Use DNS Over HTTPS' description='Enables DNS Over HTTPS, useful if your ISP blocks certain domains.'>
+      <Switch {id} bind:checked={$settings.enableDoH} />
+    </SettingCard>
+    <SettingCard class='bg-transparent' let:id title='DNS Over HTTPS URL' description='What URL to use for querying DNS Over HTTPS.'>
+      <Input type='url' bind:value={$settings.doHURL} {id} class='w-80 shrink-0 bg-background' />
+    </SettingCard>
+  {/if}
 </div>
 
 <Footer step={1} {checks}>

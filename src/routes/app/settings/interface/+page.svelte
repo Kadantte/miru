@@ -34,12 +34,6 @@
     vulkan: 'Vulkan',
     metal: 'Metal'
   }
-
-  function changeAngle (value: string) {
-    native.setAngle(value)
-  }
-
-  $: native.toggleDiscordDetails($settings.showDetailsInRPC)
 </script>
 
 <div class='space-y-3 pb-10 lg:max-w-4xl'>
@@ -55,15 +49,17 @@
   {#if !SUPPORTS.isAndroid}
     <div class='font-weight-bold text-xl font-bold'>Rendering Settings</div>
     <SettingCard title='ANGLE Backend' description="What ANGLE backend to use for rendering. DON'T CHANGE WITHOUT REASON! On some Windows machines D3D9 might help with flicker. Changing this setting to something your device doesn't support might prevent Hayase from opening which will require a full reinstall. While Vulkan is an available option it might not be fully supported on Linux.">
-      <SingleCombo bind:value={$settings.angle} items={angle} class='w-40 shrink-0 border-input border' onSelected={changeAngle} />
+      <SingleCombo bind:value={$settings.angle} items={angle} class='w-40 shrink-0 border-input border' />
     </SettingCard>
 
     <div class='font-weight-bold text-xl font-bold'>UI Settings</div>
     <SettingCard title='Idle Animation' description='Enable/Disable the 3d idle animation. Changing this setting will restart the app.' let:id>
       <Switch bind:checked={$settings.idleAnimation} on:click={native.restart} {id} />
     </SettingCard>
-    <SettingCard title='UI Scale' description='Change the zoom level of the interface.' let:id>
-      <Input type='number' inputmode='numeric' pattern='[0-9]*' min='0' max='65536' bind:value={$settings.uiScale} {id} class='w-32 shrink-0 bg-background' />
-    </SettingCard>
+  {:else}
+    <div class='font-weight-bold text-xl font-bold'>UI Settings</div>
   {/if}
+  <SettingCard title='UI Scale' description='Change the zoom level of the interface.' let:id>
+    <Input type='number' inputmode='numeric' pattern='[0-9]*' min='0' max='65536' bind:value={$settings.uiScale} {id} class='w-32 shrink-0 bg-background' />
+  </SettingCard>
 </div>
